@@ -1,0 +1,10 @@
+subscription_id             = "00000000-0000-0000-0000-000000000000"
+resource_group_name         = "aml-managed-vnet-rg"
+location                    = "eastus"
+vnet_name                   = "aml-managed-vnet"
+vnet_address_space          = ["10.1.0.0/16"]
+subnet_name                 = "aml-managed-subnet"
+subnet_prefix               = "10.1.0.0/24"
+nsg_name                    = "aml-managed-nsg"
+route_table_name            = "aml-managed-rt"
+user_assigned_identity_name = "aml-managed-uai"

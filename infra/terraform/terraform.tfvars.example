@@ -1,0 +1,14 @@
+subscription_id       = "00000000-0000-0000-0000-000000000000"
+resource_group_name   = "rg-aml-lstm-demo"
+aml_workspace_name    = "aml-lstm-forecasting"
+storage_account_name  = "stamllstm12345"
+acr_name              = "acramllstm12345"
+key_vault_name        = "kv-amllstm-12345"
+
+admin_password = "ChangeMe!2026secure"   # Must be 12+ chars with uppercase, lowercase, digit, and special char
+
+tags = {
+  owner       = "owner-name"
+  environment = "dev"
+  project     = "lstm-forecasting"
+}

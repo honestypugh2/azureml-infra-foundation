@@ -1,0 +1,17 @@
+subscription_id       = "your-subscription-id"
+resource_group_name   = "rg-aml-quickstart"
+aml_workspace_name    = "aml-quickstart"
+storage_account_name  = "stamlquickstart12345"  # must be globally unique
+acr_name              = "acramlquickstart12345"  # must be globally unique
+key_vault_name        = "kv-amlqs-12345"         # must be globally unique
+
+# Optional overrides (defaults shown)
+# compute_instance_name = "cpu-instance"
+# compute_cluster_name  = "cpu-cluster"
+# compute_vm_size       = "Standard_DS3_v2"
+
+tags = {
+  owner       = "your-name"
+  environment = "dev"
+  project     = "lstm-forecasting-quickstart"
+}
