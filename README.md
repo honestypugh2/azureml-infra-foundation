@@ -174,232 +174,15 @@ az account show --output table
 
 ### Step 3: Deploy Infrastructure
 
-Follow the [Quick Start](#quick-start) section below to deploy your chosen option.
+Choose a deployment option and follow its README:
 
-## Quick Start
+| Option | Guide |
+|--------|-------|
+| **Secure Baseline** (Recommended) | [infra/terraform/README.md](infra/terraform/README.md) |
+| **Public Quickstart** (Learning only) | [infra/terraform-quickstart/README.md](infra/terraform-quickstart/README.md) |
+| **BYO VNet Foundation** | [infra/azure-ml-vnet/README.md](infra/azure-ml-vnet/README.md) |
 
-### Option A: Secure Baseline (Recommended)
-
-```bash
-cd infra/terraform
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars — set subscription_id, resource names, admin_password
-```
-
-```bash
-az login
-terraform init
-terraform plan -out=tfplan
-terraform apply tfplan
-```
-
-After deployment, connect to the workspace through Azure Bastion:
-
-```bash
-# Option 1: Browser-based RDP via Azure Portal
-#   Portal → Bastion → Connect to jumpbox VM
-
-# Option 2: CLI tunnel (local RDP client)
-az network bastion tunnel \
-  --name "$(terraform output -raw bastion_name)" \
-  --resource-group "$(terraform output -raw resource_group_name)" \
-  --target-resource-id "$(terraform output -raw jumpbox_vm_id)" \
-  --resource-port 3389 --port 33389
-
-# Option 3: CLI-only SSH tunnel
-az network bastion tunnel \
-  --name "$(terraform output -raw bastion_name)" \
-  --resource-group "$(terraform output -raw resource_group_name)" \
-  --target-resource-id "$(terraform output -raw jumpbox_vm_id)" \
-  --resource-port 22 --port 2222
-```
-
-On the jumpbox, authenticate with the pre-assigned managed identity:
-
-```bash
-az login --identity
-az ml workspace show \
-  --name "$(terraform output -raw aml_workspace_name)" \
-  --resource-group "$(terraform output -raw resource_group_name)"
-```
-
-### Option B: Public Quickstart (Learning Only)
-
-```bash
-cd infra/terraform-quickstart
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars
-
-az login
-terraform init
-terraform apply
-```
-
-Open the workspace directly:
-
-```bash
-echo "$(terraform output -raw aml_studio_url)"
-```
-
-### Option C: BYO VNet Foundation
-
-```bash
-cd infra/azure-ml-vnet
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars
-
-az login
-terraform init
-terraform apply
-```
-
-Use the outputs (`subnet_id`, `nsg_id`, `user_assigned_identity_id`) when creating your AML workspace with BYO VNet integration.
-
-## Resources Deployed
-
-### Secure Baseline (`infra/terraform/`)
-
-| Resource | Configuration | Purpose |
-|----------|---------------|---------|
-| Resource Group | — | Container for all resources |
-| Virtual Network | 10.30.0.0/16 | Jumpbox + Bastion networking |
-| NAT Gateway | Standard | Deterministic outbound IP for jumpbox subnet |
-| Azure Bastion | Standard SKU, tunneling enabled | Secure access to jumpbox (no public IP on VM) |
-| Windows VM (jumpbox) | Standard_D4s_v3, Entra ID joined | Access point for AML Studio and CLI |
-| User-Assigned MI | Contributor + AzureML Data Scientist | Jumpbox authentication |
-| Storage Account | Firewall: Deny, shared keys disabled | AML default datastore |
-| Key Vault | Firewall: Deny | Secrets and certificates |
-| Container Registry | Premium, public access disabled | Custom environment images |
-| Application Insights | + Log Analytics | Workspace telemetry |
-| AML Workspace | Managed VNet (`AllowInternetOutbound`) | Machine learning platform |
-| AML Compute Cluster | Standard_DS3_v2, 0–4 nodes | Training compute |
-| Private Endpoints (6) | Workspace, blob, file, vault, ACR, notebooks | Zero public-internet access |
-| Private DNS Zones (8) | api.azureml.ms, notebooks, blob, file, vault, ACR, etc. | Name resolution for private endpoints |
-
-### Public Quickstart (`infra/terraform-quickstart/`)
-
-| Resource | Configuration | Purpose |
-|----------|---------------|---------|
-| Resource Group | — | Container |
-| Storage Account | Public access, shared keys via Azure AD | AML datastore |
-| Key Vault | Standard, public | Secrets |
-| Container Registry | Basic, public | Images |
-| Application Insights | + Log Analytics | Telemetry |
-| AML Workspace | Public, no managed VNet | Machine learning platform |
-| Compute Instance | Standard_DS3_v2 | Interactive development |
-| Compute Cluster | Standard_DS3_v2, 0–2 nodes | Training jobs |
-
-### BYO VNet Foundation (`infra/azure-ml-vnet/`)
-
-| Resource | Configuration | Purpose |
-|----------|---------------|---------|
-| Resource Group | — | Container |
-| Virtual Network | 10.1.0.0/16 | AML networking |
-| Subnet | 10.1.0.0/24, delegated to ML Services | Compute hosting |
-| Network Security Group | 12 rules (2 inbound, 10 outbound) | AML service-tag traffic |
-| Route Table | Empty (ready for UDRs) | Custom routing |
-| User-Assigned MI | — | AML workspace/compute identity |
-
-## Networking Deep Dive
-
-### Managed VNet Isolation Modes
-
-| Mode | Outbound Access | Use Case |
-|------|----------------|----------|
-| `AllowInternetOutbound` | Compute can reach the internet + all private endpoints created automatically | Default — suitable for most workloads needing pip/conda access |
-| `AllowOnlyApprovedOutbound` | Compute can only reach explicitly approved destinations | Strict egress control — add FQDN outbound rules for required endpoints |
-
-Change the isolation mode via the `aml_isolation_mode` variable in `infra/terraform/variables.tf`.
-
-### Managed VNet Provisioning
-
-Private endpoints inside the managed VNet are **not** created at workspace deployment time. They are created when:
-
-1. **First compute resource** is created (compute instance or cluster), or
-2. **Manual provisioning** is triggered via `az ml workspace provision-network`
-
-```bash
-# Force provisioning without creating compute
-az ml workspace provision-network \
-  --name <workspace-name> \
-  --resource-group <resource-group> \
-  --include-spark
-```
-
-### Enterprise Network Integration
-
-| Scenario | Approach |
-|----------|----------|
-| **VPN/ExpressRoute** | Use `azure-ml-vnet` BYO VNet module; peer with hub VNet or attach VPN gateway |
-| **Hub-spoke topology** | Deploy `azure-ml-vnet` as a spoke; peer to hub; route through firewall via UDRs |
-| **Custom DNS** | Point VNet DNS to your resolver; add conditional forwarders for `privatelink.*` zones |
-| **Outbound firewall (NVA)** | Use `AllowOnlyApprovedOutbound`; add UDRs in route table to force traffic through NVA |
-| **Image build behind firewall** | Enable ACR tasks with private endpoints, or use pre-built images from private ACR |
-
-## RBAC Reference
-
-### Automated by Terraform
-
-The IaC configurations assign these roles automatically:
-
-| Principal | Role | Scope | Config |
-|-----------|------|-------|--------|
-| AML Workspace MI | Storage Blob Data Contributor | Storage Account | `terraform/` |
-| AML Workspace MI | Storage File Data Privileged Contributor | Storage Account | `terraform/` |
-| AML Workspace MI | AcrPush | Container Registry | `terraform/` |
-| AML Workspace MI | Key Vault Administrator | Key Vault | `terraform/` |
-| Jumpbox MI | Contributor | Resource Group | `terraform/` |
-| Jumpbox MI | AzureML Data Scientist | AML Workspace | `terraform/` |
-| Deploying user | Virtual Machine Administrator Login | Jumpbox VM | `terraform/` |
-| Deploying user | Contributor | AML Workspace | `terraform/` |
-| Deploying user | Storage Blob Data Contributor | Storage Account | `terraform-quickstart/` |
-| Deploying user | Storage File Data Privileged Contributor | Storage Account | `terraform-quickstart/` |
-
-### Additional Roles for Teams
-
-| Role | Scope | Who |
-|------|-------|-----|
-| AzureML Data Scientist | AML Workspace | Data scientists submitting jobs |
-| AzureML Compute Operator | AML Workspace | Users managing compute resources |
-| Reader | Resource Group | Auditors and observers |
-
-## Validation
-
-After deployment, verify the workspace is operational:
-
-```bash
-# Verify workspace
-az ml workspace show --name <workspace> --resource-group <rg> --output table
-
-# List compute (should show your cluster)
-az ml compute list --workspace-name <workspace> --resource-group <rg> --output table
-
-# Submit a smoke-test job (from jumpbox for secure deployment)
-az ml job create \
-  --workspace-name <workspace> \
-  --resource-group <rg> \
-  --file - <<'EOF'
-$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
-command: echo "Hello from Azure ML"
-environment: azureml://registries/azureml/environments/sklearn-1.5/labels/latest
-compute: azureml:cpu-cluster
-EOF
-```
-
-## Cost Considerations
-
-| Component | Secure Baseline | Quickstart |
-|-----------|----------------|------------|
-| AML Workspace | Free tier | Free tier |
-| Compute Cluster | Pay per use (scales to 0) | Pay per use (scales to 0) |
-| Compute Instance | — | Runs continuously until stopped |
-| Jumpbox VM (D4s_v3) | ~$140/mo (running) | — |
-| Azure Bastion (Standard) | ~$140/mo | — |
-| NAT Gateway | ~$32/mo + data | — |
-| ACR Premium | ~$50/mo | ACR Basic ~$5/mo |
-| Storage, KV, App Insights | Usage-based | Usage-based |
-
-> **Tip:** Stop the jumpbox VM and Bastion when not in use. Compute clusters auto-scale to zero nodes when idle.
+Each guide covers prerequisites, deployment steps, resource details, access options, RBAC assignments, networking configuration, validation, and cost considerations.
 
 ## Cleanup
 
@@ -420,13 +203,27 @@ The networking patterns, private endpoints, and RBAC model in this repo apply di
 
 ## Roadmap
 
+### Infrastructure
+- [ ] Start with Terraform modules first, add Bicep equivalents after
+- [ ] BYO Managed VNet — test and validate end-to-end
+- [ ] Add AKS as a compute backend option
 - [ ] CI/CD pipeline examples (GitHub Actions) for `terraform plan`/`apply`
-- [ ] Validation scripts and notebooks for post-deployment checks
 - [ ] `AllowOnlyApprovedOutbound` FQDN rule examples
-- [ ] Azure AI Foundry hub/project Terraform module
 - [ ] Remote state backend configuration (Azure Storage)
 - [ ] Policy-as-code (Azure Policy / OPA) for guardrails
 - [ ] Example: attaching BYO VNet module to a workspace deployment
+
+### Foundry
+- [ ] Azure AI Foundry hub/project Terraform module
+
+### Use Cases
+- [ ] Time series forecasting — based on [aml-v2-lstm-ts-forecasting-demo](https://github.com/honestypugh2/aml-v2-lstm-ts-forecasting-demo)
+- [ ] Manufacturing
+- [ ] Healthcare
+
+### Validation
+- [ ] Validation scripts and notebooks for post-deployment checks
+
 
 ## References
 

@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.11"
 authors = [
     { name = "Brittany Pugh", email = "brittanypugh@microsoft.com" },
+    { name = "Alexandra Miller-Browne", email = "alexandram@microsoft.com" },
+    { name = "Hugo Girard", email = "Hugo.Girard@microsoft.com" },
 ]
 dependencies = [
     "azure-ai-ml>=1.30.0",
