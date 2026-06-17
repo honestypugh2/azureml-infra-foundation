@@ -53,6 +53,14 @@ Compose this with your own AML workspace Terraform, referencing the `subnet_id` 
 azureml-infra-foundation/
 ├── README.md
 ├── infra/
+│   ├── bicep/                      # Modular AML baseline (US-1.1 starter)
+│   │   ├── main.bicep             # Composition entrypoint
+│   │   ├── main.bicepparam        # Example parameters
+│   │   ├── modules/
+│   │   │   ├── backing-services.bicep
+│   │   │   └── aml-workspace.bicep
+│   │   └── README.md
+│   │
 │   ├── terraform/                  # Secure baseline (Managed VNet)
 │   │   ├── main.tf                 # AML workspace + firewalled Storage/KV/ACR + private endpoints + DNS
 │   │   ├── bastion_jumpbox.tf      # Azure Bastion (Standard SKU, tunneling enabled)
