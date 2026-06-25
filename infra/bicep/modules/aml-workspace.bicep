@@ -35,7 +35,7 @@ param associatedKeyVaultResourceId string
 param associatedApplicationInsightsResourceId string
 
 @description('Optional resource ID for the associated container registry.')
-param associatedContainerRegistryResourceId string = ''
+param associatedContainerRegistryResourceId string?
 
 @description('Whether public network access is enabled.')
 @allowed([
@@ -65,42 +65,26 @@ param systemDatastoresAuthMode string = 'Identity'
 @description('Tags applied to the workspace.')
 param tags object = {}
 
-var formattedUserAssignedIdentities = reduce(
-  map((managedIdentities.?userAssignedResourceIds ?? []), (id) => { '${id}': {} }),
-  {},
-  (cur, next) => union(cur, next)
-)
-
-var identity = {
-  type: (managedIdentities.?systemAssigned ?? false)
-    ? (!empty(formattedUserAssignedIdentities) ? 'SystemAssigned,UserAssigned' : 'SystemAssigned')
-    : (!empty(formattedUserAssignedIdentities) ? 'UserAssigned' : 'None')
-  userAssignedIdentities: !empty(formattedUserAssignedIdentities) ? formattedUserAssignedIdentities : null
-}
-
 // Create the AML workspace and attach required backing resources by resource ID.
-resource workspace 'Microsoft.MachineLearningServices/workspaces@2024-10-01-preview' = {
-  name: name
-  location: location
-  kind: kind
-  tags: tags
-  sku: {
-    name: sku
-    tier: sku
-  }
-  identity: identity
-  properties: {
-    friendlyName: name
-    storageAccount: associatedStorageAccountResourceId
-    keyVault: associatedKeyVaultResourceId
-    applicationInsights: associatedApplicationInsightsResourceId
-    containerRegistry: empty(associatedContainerRegistryResourceId) ? null : associatedContainerRegistryResourceId
+module workspace 'br/public:avm/res/machine-learning-services/workspace:0.13.2' = {
+  name: 'workspace'
+  params: {
+    name: name
+    location: location
+    sku: sku
+    kind: kind
+    associatedStorageAccountResourceId: associatedStorageAccountResourceId
+    associatedKeyVaultResourceId: associatedKeyVaultResourceId
+    associatedApplicationInsightsResourceId: associatedApplicationInsightsResourceId
+    associatedContainerRegistryResourceId: associatedContainerRegistryResourceId
+    managedIdentities: managedIdentities
     publicNetworkAccess: publicNetworkAccess
-    managedNetwork: managedNetworkSettings
+    managedNetworkSettings: managedNetworkSettings
     systemDatastoresAuthMode: systemDatastoresAuthMode
+    tags: tags
   }
 }
 
-output id string = workspace.id
-output name string = workspace.name
-output principalId string = workspace.identity.principalId
+output id string = workspace.outputs.resourceId
+output name string = workspace.outputs.name
+output principalId string? = workspace.outputs.?systemAssignedMIPrincipalId

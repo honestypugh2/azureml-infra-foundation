@@ -86,7 +86,7 @@ module amlWorkspace 'modules/aml-workspace.bicep' = {
     associatedStorageAccountResourceId: backingServices.outputs.storageAccountId
     associatedKeyVaultResourceId: backingServices.outputs.keyVaultId
     associatedApplicationInsightsResourceId: backingServices.outputs.applicationInsightsId
-    associatedContainerRegistryResourceId: deployContainerRegistry ? backingServices.outputs.containerRegistryId : ''
+    associatedContainerRegistryResourceId: deployContainerRegistry ? backingServices.outputs.containerRegistryId : null
     publicNetworkAccess: publicNetworkAccess
     managedNetworkSettings: managedNetworkSettings
     systemDatastoresAuthMode: systemDatastoresAuthMode
@@ -96,7 +96,7 @@ module amlWorkspace 'modules/aml-workspace.bicep' = {
 
 output workspaceId string = amlWorkspace.outputs.id
 output workspaceName string = amlWorkspace.outputs.name
-output workspacePrincipalId string = amlWorkspace.outputs.principalId
+output workspacePrincipalId string? = amlWorkspace.outputs.?principalId
 output storageAccountId string = backingServices.outputs.storageAccountId
 output keyVaultId string = backingServices.outputs.keyVaultId
 output applicationInsightsId string = backingServices.outputs.applicationInsightsId
